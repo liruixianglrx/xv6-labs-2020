@@ -41,7 +41,8 @@ ls(char *path)
     return;
   }
 
-  switch(st.type){
+  switch(st.type)
+  {
   case T_FILE:
     printf("%s %d %d %l\n", fmtname(path), st.type, st.ino, st.size);
     break;
@@ -74,9 +75,14 @@ int
 main(int argc, char *argv[])
 {
   int i;
+  /*printf("argc=%d\n",argc);
+  printf("now is argv\n");
+  for (i=0;i<argc;i++)
+  printf("%s ",argv[i]);
+  printf("\nargv is over");*/
 
   if(argc < 2){
-    ls(".");
+    ls("/");
     exit(0);
   }
   for(i=1; i<argc; i++)
