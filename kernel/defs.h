@@ -92,6 +92,7 @@ int             fork(void);
 int             growproc(int);
 pagetable_t     proc_pagetable(struct proc *);
 void            proc_freepagetable(pagetable_t, uint64);
+void 		 proc_freekpagetable(pagetable_t,uint64,uint64);
 int             kill(int);
 struct cpu*     mycpu(void);
 struct cpu*     getmycpu(void);
@@ -178,6 +179,11 @@ uint64          walkaddr(pagetable_t, uint64);
 int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
+void vmprint(pagetable_t page);
+void vmprintl(pagetable_t page,int l);
+pagetable_t kvmmake();
+void uvmfree2(pagetable_t,uint64,uint);
+void vmcopypage(pagetable_t pagetable,pagetable_t kpagetable,uint64 dst,uint64 sz);
 
 // plic.c
 void            plicinit(void);
@@ -223,3 +229,7 @@ int             sockread(struct sock *, uint64, int);
 int             sockwrite(struct sock *, uint64, int);
 void            sockrecvudp(struct mbuf*, uint32, uint16, uint16);
 #endif
+
+//vmcopyin.c
+int       	 copyin_new(pagetable_t,char *,uint64,uint64);
+int       	 copyinstr_new(pagetable_t,char *,uint64,uint64);
