@@ -1,7 +1,7 @@
 # sleep
 编写一个用户级的sleep，很简单的实验，直接贴代码
 
-```c
+```
 #include "kernel/types.h"
 #include "user/user.h"
 
