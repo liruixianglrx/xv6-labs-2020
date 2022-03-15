@@ -19,8 +19,36 @@ int main(int argc, char const *argv[])
 注意的是argv[0]默认是执行的文件名，在这里是sleep，argv[1]才是sleep的参数
     
 ## pingpong
-使用pipe进行通讯，pipe(p),p[0]为读取端，p[1]为写入段，如果在写入段没有全部关闭时read(p[0])会等待数据读入，可能造成读取阻塞
-而fork时会将读取写入段都复制一份
+没啥好说的，直接贴代码
+```
+#include "kernel/types.h"
+#include "kernel/stat.h"
+#include "user/user.h"
+
+int main(int argc,char* argv[])
+{
+    int p1[2],p2[2];
+    char buf,msg='x';
+    pipe(p1);
+    pipe(p2);
+    if (fork()!=0)
+    {
+        write(p1[1],&msg,1);
+        read(p2[0],&buf,1);
+        printf("%d: received pong\n",getpid());
+    }
+    else {
+        read(p1[0],&buf,1);
+        printf("%d: received ping\n",getpid());
+        write(p2[1],&msg,1);
+    }
+    exit (0);
+}
+```
+
+## prime
+使用pipe进行通讯，pipe(p),p[0]为读取端，p[1]为写入端，如果在写入端没有全部关闭时，read(p[0])会等待数据读入，可能造成读取阻塞
+因此对于不需要的管道描述符，要尽可能早的关闭。而fork()时会将读取，写入端都复制一份。
 
 注意这里要求使用pipe不停的传入下一串素数，并用第一个数排除一些合数，代码如下
 ```
@@ -67,3 +95,6 @@ void prime(int* in ,int* out)
 
 }
 ```
+
+## find
+
