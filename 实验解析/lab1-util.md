@@ -15,5 +15,5 @@ int main(int argc, char const *argv[])
   exit(0);
 }
 ```
-    注意的是argv[0]默认是执行的文件名，在这里是sleep，argv[1]才是sleep的参数
+注意的是argv[0]默认是执行的文件名，在这里是sleep，argv[1]才是sleep的参数
     
