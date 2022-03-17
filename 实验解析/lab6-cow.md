@@ -23,6 +23,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
+    ref[(pa-KERBASE)/PGSIZE]++;
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto err;
@@ -144,5 +145,19 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
     }
     *pte = 0;
   }
+}
+```
+
+在`mappages（）`里面每次为ref++
+```c
+int
+mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
+{
+  ...
+    *pte = PA2PTE(pa) | perm | PTE_V;
+    if (pa>=KERBASE) ref[(pa-KERBASE)/PGSIZE]++;
+    if(a == last)
+      break;
+  ...
 }
 ```
