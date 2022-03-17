@@ -23,7 +23,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
-    ref[(pa-KERBASE)/PGSIZE]++;
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)
       goto err;
@@ -40,6 +39,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
      *pte=*pte & ~PTE_W;
+     *pte=*pte|PTE_COW;
      pa =PTE2PA(*pte);
      flags=PTE_FLAGS(*pte);
      
@@ -110,25 +110,6 @@ kalloc(void)
 }
 ```
 
-在`kfree()`中仅当ref==0时释放空间
-```c
-void
-kfree(void *pa)
-{
-  struct run *r;
-
-  if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
-    panic("kfree");
-
-  if (ref[(pa-KERBASE)/PGSIZE]==0){
-  // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
-
-  r = (struct run*)pa;
-...
-}
-```
-
 在`uvmunmap（）`里ref--；
 ```c
 void
@@ -161,5 +142,54 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
     if(a == last)
       break;
   ...
+}
+```
+
+在`copyout()`里处理pagefault
+```c
+int
+copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
+{
+  uint64 n, va0, pa0;
+
+  while(len > 0){
+    va0 = PGROUNDDOWN(dstva);
+    pa0 = walkaddr(pagetable, va0);
+    if(pa0 == 0)
+      return -1;
+    pte_t *pte;
+    
+    if ((pte=walk(pagetable,va0,0))==0) {return -1;}
+    if (*pte&PTE_COW){
+    char *mem;
+    uint flags;
+    if (ref[(pa0-KERNBASE)/PGSIZE]==2)
+    {*pte=*pte|PTE_W;
+     *pte=*pte& ~PTE_COW;
+    }
+    else {
+     	if ((mem=kalloc())==0) {return -1;}
+     	else{
+     	ref[(pa0-KERNBASE)/PGSIZE]-=1;
+     	memmove(mem,(char*)pa0,PGSIZE);
+     	*pte=*pte | PTE_W;
+     	*pte=*pte & ~PTE_COW;
+     	flags=PTE_FLAGS(*pte);
+     	*pte=PA2PTE((uint64)mem)|flags;
+     	ref[((uint64)mem-KERNBASE)/PGSIZE]+=1;
+     	pa0=(uint64)mem;
+     	}
+    }    
+    }
+    n = PGSIZE - (dstva - va0);
+    if(n > len)
+      n = len;
+    memmove((void *)(pa0 + (dstva - va0)), src, n);
+
+    len -= n;
+    src += n;
+    dstva = va0 + PGSIZE;
+  }
+  return 0;
 }
 ```
