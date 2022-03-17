@@ -9,6 +9,7 @@
 #include "riscv.h"
 #include "defs.h"
 
+extern int ref[];
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
@@ -77,6 +78,8 @@ kalloc(void)
   release(&kmem.lock);
 
   if(r)
-    memset((char*)r, 5, PGSIZE); // fill with junk
+   { memset((char*)r, 5, PGSIZE); // fill with junk
+     //ref[((uint64)r-KERNBASE)/PGSIZE]=1;
+   }
   return (void*)r;
 }
