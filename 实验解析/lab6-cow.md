@@ -62,3 +62,41 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
 ![image](https://user-images.githubusercontent.com/99662709/158755684-dc8394b4-866b-4462-ba6b-9d9a53e72e4d.png)
 
+修改usertrap
+```c
+} else if((which_dev = devintr()) != 0){
+    // ok
+  } else if(r_scause==13 ||r_scause()==15){
+     pte_t *pte;
+     uint64 addr=r_stval();
+     addr=PGROUNDDOWN(addr);
+     if ((pte=walk(p->pagetable,addr,0))==0||!(*pte & PTE_COW))
+     {p->killed=1;}
+     else {
+           char *mem;
+           uint64 pa=PTE2PA(*pte);
+           if (ref[(pa-KERBASE)/PGSIZE]==2){
+              *pte=*pte | PTE_W;
+              *pte=*pte & ~PTE_COW;
+     	  }else if ( (mem=kalloc())==0){ p->killed;}
+     	   else {
+     	    	ref[(pa-KERBASE)/PGSIZE]-=1;
+     	    	memmove(mem,(char*)pa,PGIZE);
+     	    	*pte=*pte | PTE_W;
+     	    	*pte=*pte & ~PTE_COW;
+     	    	flags=PTE_FLAGS(*pte);
+     	    	mappages(p->pagetable,addr,PGSIZE,mem,flags);
+     	    	ref[(mem-KERBASE)/PGSIZE]+=1;
+     	  	}
+  }
+  }
+  ...
+```
+
+在`kalloc（）`中为ref设初值
+```c
+if(r)
+   { memset((char*)r, 5, PGSIZE); // fill with junk
+     ref[(r-KERBASE)/PGSIZE]=1;
+   }
+```
