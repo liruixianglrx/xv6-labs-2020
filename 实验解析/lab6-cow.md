@@ -86,7 +86,7 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
      	    	*pte=*pte | PTE_W;
      	    	*pte=*pte & ~PTE_COW;
      	    	flags=PTE_FLAGS(*pte);
-     	    	mappages(p->pagetable,addr,PGSIZE,mem,flags);
+     	    	*pte=PA2PTE((uint64)mem)|flags;
      	    	ref[(mem-KERBASE)/PGSIZE]+=1;
      	  	}
   }
