@@ -98,17 +98,12 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 void *
 kalloc(void)
 {
-  struct run *r;
-
-  acquire(&kmem.lock);
-  r = kmem.freelist;
-  if(r)
-    kmem.freelist = r->next;
+...
   release(&kmem.lock);
 
   if(r)
    { memset((char*)r, 5, PGSIZE); // fill with junk
-    ** ref[(r-KERBASE)/PGSIZE]=1;  //为ref设初值**
+     ref[(r-KERBASE)/PGSIZE]=1;  //为ref设初值
    }
   return (void*)r;
 }
@@ -124,15 +119,30 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  **if (ref[(pa-KERBASE)/PGSIZE]==0){  **
+  if (ref[(pa-KERBASE)/PGSIZE]==0){
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
 
   r = (struct run*)pa;
+...
+}
+```
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);}
+在`uvmunmap（）`里ref--；
+```c
+void
+uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
+{
+  ...
+    if(PTE_FLAGS(*pte) == PTE_V)
+      panic("uvmunmap: not a leaf");
+      
+    uint64 pa = PTE2PA(*pte);
+    ref[(pa-KERBASE)/PGSIZE--;
+    if(do_free){
+      kfree((void*)pa);
+    }
+    *pte = 0;
+  }
 }
 ```
