@@ -108,8 +108,31 @@ kalloc(void)
 
   if(r)
    { memset((char*)r, 5, PGSIZE); // fill with junk
-     ref[(r-KERBASE)/PGSIZE]=1;  //为ref设初值
+    ** ref[(r-KERBASE)/PGSIZE]=1;  //为ref设初值**
    }
   return (void*)r;
+}
+```
+
+在`kfree()`中仅当ref==0时释放空间
+```c
+void
+kfree(void *pa)
+{
+  struct run *r;
+
+  if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
+    panic("kfree");
+
+  **if (ref[(pa-KERBASE)/PGSIZE]==0){  **
+  // Fill with junk to catch dangling refs.
+  memset(pa, 1, PGSIZE);
+
+  r = (struct run*)pa;
+
+  acquire(&kmem.lock);
+  r->next = kmem.freelist;
+  kmem.freelist = r;
+  release(&kmem.lock);}
 }
 ```
