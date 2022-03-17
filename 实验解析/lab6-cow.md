@@ -7,7 +7,7 @@
 其中 ref[i]表示索引物理地址为i*PGSIZE+KERNBASE 的页表数目
 
 根据提示修改uvmcopy，不再为新页表分配内存
-**注意修改新旧页表的PTE_W位
+**注意修改新旧页表的PTE_W位**
 ```c
 int
 uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
