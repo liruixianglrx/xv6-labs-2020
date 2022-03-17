@@ -95,8 +95,21 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
 在`kalloc（）`中为ref设初值
 ```c
-if(r)
+void *
+kalloc(void)
+{
+  struct run *r;
+
+  acquire(&kmem.lock);
+  r = kmem.freelist;
+  if(r)
+    kmem.freelist = r->next;
+  release(&kmem.lock);
+
+  if(r)
    { memset((char*)r, 5, PGSIZE); // fill with junk
-     ref[(r-KERBASE)/PGSIZE]=1;
+     ref[(r-KERBASE)/PGSIZE]=1;  //为ref设初值
    }
+  return (void*)r;
+}
 ```
