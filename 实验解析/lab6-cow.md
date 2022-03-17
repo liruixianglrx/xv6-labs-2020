@@ -56,6 +56,8 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
 
 于riscv.h中
 加入标识位PTE_F表示是否fork调用,使用系统预留标识位
+
 `#define PTE_F (1L << 8)`
+
 ![image](https://user-images.githubusercontent.com/99662709/158755684-dc8394b4-866b-4462-ba6b-9d9a53e72e4d.png)
 
