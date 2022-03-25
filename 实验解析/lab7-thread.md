@@ -84,3 +84,35 @@ struct thread {
 }
 ...
 ```
+
+# Using threads
+
+来看一下程序的运行过程：设定了五个散列桶，根据键除以5的余数决定插入到哪一个散列桶中，插入方法是头插法，下面是图示
+
+不支持在 Docs 外粘贴 block
+
+这个实验比较简单，首先是问为什么为造成数据丢失：
+
+> 假设现在有两个线程T1和T2，两个线程都走到put函数，且假设两个线程中key%NBUCKET相等，即要插入同一个散列桶中。两个线程同时调用insert(key, value, &table[i], table[i])，insert是通过头插法实现的。如果先insert的线程还未返回另一个线程就开始insert，那么前面的数据会被覆盖
+
+因此只需要对插入操作上锁即可
+
+(1). 为每个散列桶定义一个锁，将五个锁放在一个数组中，并进行初始化
+
+```c
+pthread_mutex_t lock[NBUCKET] = { PTHREAD_MUTEX_INITIALIZER }; // 每个散列桶一把锁
+```
+
+(2). 在`put`函数中对`insert`上锁
+
+```c
+if(e){
+    // update the existing key.
+    e->value = value;
+} else {
+    pthread_mutex_lock(&lock[i]);
+    // the new is new.
+    insert(key, value, &table[i], table[i]);
+    pthread_mutex_unlock(&lock[i]);
+}
+```
