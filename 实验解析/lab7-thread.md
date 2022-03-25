@@ -70,7 +70,7 @@ struct thread {
      * Invoke thread_switch to switch from t to next_thread:
      * thread_switch(??, ??);
      */
-     thread_switch(t->stack,current_thread->stack);
+     thread_switch(（uint64）&t->contest,(uint64)&current_thread->contest);
      t->state=RUNNABLE;
 ```
 
@@ -79,7 +79,7 @@ struct thread {
 ```c
 ...
   // YOUR CODE HERE
-  t->context.ra=(uint64)fuc;
+  t->context.ra=(uint64)func;
   t->context.sp=(uint64)t->stack+STACK_SIZE;//point to the top of the stack
 }
 ...
