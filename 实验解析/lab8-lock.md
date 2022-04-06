@@ -138,6 +138,10 @@ kalloc(void)
 
 （1）修改bcache内容和结构，定义结构体hashbucket
 ```c
+struct hashbucket{
+  struct buf head;
+  struct spinlock lock;
+};
 struct {
   struct buf buf[NBUF];
   struct hashbucket bucket[13];
@@ -147,10 +151,6 @@ struct {
 
 } bcache;
 
-struct hashbucket{
-struct buf head;
-struct spinlock lock;
-}
 ```
 
 （2）修改`binit()`都是按照之前的代码照敲，只不过是把所有buff都加载在bucket[0]上
@@ -196,7 +196,7 @@ binit(void)
 struct buf {
   ...
  
-  uint timestamp
+  uint timestamp;
 };
 
 ```
@@ -210,7 +210,7 @@ bget(uint dev, uint blockno)
 
   //acquire(&bcache.lock);
   int bno=blockno % 13;
-  acquire (&bcache.bucket[bno].lock]);
+  acquire (&bcache.bucket[bno].lock);
 
   // Is the block already cached?
   /*for(b = bcache.head.next; b != &bcache.head; b = b->next){
@@ -225,11 +225,16 @@ bget(uint dev, uint blockno)
     for(b = bcache.bucket[bno].head.next; b != &bcache.bucket[bno].head; b = b->next){
     if(b->dev == dev && b->blockno == blockno){
       b->refcnt++;
+      
+      //record ticks
+      acquire(&tickslock);
+      b->timestamp = ticks;
+      release(&tickslock);
+      
       release(&bcache.bucket[bno].lock);
       acquiresleep(&b->lock);
       return b;
     }
-    
   }
 
   // Not cached.
@@ -245,8 +250,36 @@ bget(uint dev, uint blockno)
       return b;
     }*/
     
-    for(b = bcache.bucket[bno].head.prev; b != &bcache.bucket[bno].head; b = b->prev){
-    if(b->refcnt == 0) {
+    struct buf* tmp;
+    b=0;
+    
+    for (int i=bno,times=0;times<13;i=(i+1)%13){
+    ++times;
+    if (i!=bno)       //we have previously acquired bcache.bucket[bno].lock
+    {                 //dont acquire it again
+    if (!holding(&bcache.bucket[i].lock))
+       acquire (&bcache.bucket[i].lock);
+       else continue; //if lock is being held,try to acquire next lock
+    }
+    
+    for (tmp=bcache.bucket[i].head.prev; tmp != &bcache.bucket[i].head; tmp = tmp->prev){
+    if (tmp->refcnt==0 && (b==0 || tmp->timestamp < b->timestamp ))
+        b=tmp;//using LRU strategy to find the buffer
+    }
+    
+    if (b)
+    {
+    if (i != bno){
+     b->next->prev=b->prev;
+     b->prev->next=b->next;
+     release(&bcache.bucket[i].lock);
+     
+     b->next=bcache.bucket[bno].head.next;
+     b->prev=&bcache.bucket[bno].head;
+     bcache.bucket[bno].head.next=b;
+     b->next->prev=b;
+    }
+     
       b->dev = dev;
       b->blockno = blockno;
       b->valid = 0;
@@ -255,12 +288,61 @@ bget(uint dev, uint blockno)
       acquire(&tickslock);
       b->timestamp = ticks;
       release(&tickslock);
-  
-      release(&bcache.lock);
+      
+      
+      release(&bcache.bucket[bno].lock);
       acquiresleep(&b->lock);
-      return b;
+      return b;   
+    }else {
+    if (i!=bno)
+       release(&bcache.bucket[i].lock);
     }
-  }
+    }
   panic("bget: no buffers");
 }
+
+```
+
+(5)修改brelse，因为使用时间戳，因此不必在把每个refcnt==0后的buffer移至哈希表前，只需要更新其timestamp
+```c
+void
+brelse(struct buf *b)
+{
+  int bno=b->blockno %13;
+  if(!holdingsleep(&b->lock))
+    panic("brelse");
+
+  releasesleep(&b->lock);
+
+  acquire(&bcache.bucket[bno].lock);
+  b->refcnt--;
+  
+    // no one is waiting for it.
+   acquire(&tickslock);
+   b->timestamp = ticks;
+   release(&tickslock);
+
+  
+  release(&bcache.bucket[bno].lock);
+}
+```
+
+修改一下最后的两个小函数中获得和释放的lock
+```c
+void
+bpin(struct buf *b) {
+  int bno=b->blockno %13;
+  acquire(&bcache.bucket[bno].lock);
+  b->refcnt++;
+  release(&bcache.bucket[bno].lock);
+}
+
+void
+bunpin(struct buf *b) {
+  int bno=b->blockno %13;
+  acquire(&bcache.bucket[bno].lock);
+  b->refcnt--;
+  release(&bcache.bucket[bno].lock);
+}
+
 ```
