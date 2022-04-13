@@ -81,4 +81,50 @@ bmap(struct inode *ip, uint bn)
   panic("bmap: out of range");
 }
 ```
-注意更好的实现应该是在修改完成bp后立刻释放bp的锁，因为以后的修改都是修改其他block，这样做能提高部分性能，本人此处为了代码整体美观没有这么做，经过测试如果将第三部分brelse(bp)修改至
+注意更好的实现应该是在修改完成bp后立刻释放bp的锁，因为以后的修改都是修改其他block，这样做能提高部分性能，本人此处为了代码整体美观没有这么做
+
+修改itrunc以释放所有的块，和之前换汤不换药
+```c
+void
+itrunc(struct inode *ip)
+{
+  int i, j;
+  struct buf *bp;
+  struct buf *bp1;
+  uint *a;
+
+  for(i = 0; i < NDIRECT; i++){
+  ...
+  }
+
+  if(ip->addrs[NDIRECT]){
+  ...
+  }
+  
+  
+  uint* a1;
+  if(ip->addrs[NDIRECT + 1]) {
+    bp = bread(ip->dev, ip->addrs[NDIRECT + 1]);
+    a = (uint*)bp->data;
+    for(i = 0; i < 256; i++) {
+      if(a[i]) {
+        bp1 = bread(ip->dev, a[i]);
+        a1 = (uint*)bp1->data;
+        for(j = 0; j < 256; j++) {
+          if(a1[j])
+            bfree(ip->dev, a1[j]);
+        }
+        brelse(bp1);
+        bfree(ip->dev, a[i]);
+      }
+    }
+    brelse(bp);
+    bfree(ip->dev, ip->addrs[NDIRECT + 1]);
+    ip->addrs[NDIRECT + 1] = 0;
+  }
+
+  
+  ip->size = 0;
+  iupdate(ip);
+}
+```
