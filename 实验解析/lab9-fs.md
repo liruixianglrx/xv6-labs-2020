@@ -3,7 +3,7 @@
 
 在`fs.h`中，改变NDIRECT，ADDRS，maxfile的定义,addrs[11]作为一级间接块，addrs[12]作为二级间接块
 添加NNINDIRECT作为二级间接块数目
-```
+```c
 ...
 #define NDIRECT 11
 #define NINDIRECT (BSIZE / sizeof(uint))
@@ -11,11 +11,11 @@
 #define NNINDIRECT (NINDIRECT*NINDIRECT) //256*256
 ...
 uint addrs[NDIRECT+1+1];
-```c
+```
 
 改变bmap，添加第二级间接块的映射
 
-```
+```c
 static uint
 bmap(struct inode *ip, uint bn)
 {
@@ -70,4 +70,4 @@ bmap(struct inode *ip, uint bn)
 
   panic("bmap: out of range");
 }
-```c
+```
