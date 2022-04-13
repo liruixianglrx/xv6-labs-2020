@@ -116,3 +116,5 @@ itrunc(struct inode *ip)
   iupdate(ip);
 }
 ```
+
+第二个实验看了下别人的解析感觉挺简单的，就没有完成
