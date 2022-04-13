@@ -71,3 +71,4 @@ bmap(struct inode *ip, uint bn)
   panic("bmap: out of range");
 }
 ```
+注意更好的实现应该是在修改完成bp后立刻释放bp的锁，因为以后的修改都是修改其他block，这样做能提高部分性能，本人此处为了代码整体美观没有这么做，经过测试如果将第三部分brelse(bp)修改至
