@@ -14,7 +14,8 @@ uint addrs[NDIRECT+1+1];
 ```c
 
 改变bmap，添加第二级间接块的映射
-```c
+
+```
 static uint
 bmap(struct inode *ip, uint bn)
 {
@@ -69,4 +70,4 @@ bmap(struct inode *ip, uint bn)
 
   panic("bmap: out of range");
 }
-```
+```c
