@@ -13,6 +13,16 @@
 uint addrs[NDIRECT+1+1];
 ```
 
+修改内存中的inode
+```c
+struct inode {
+...
+  short nlink;
+  uint size;
+  uint addrs[NDIRECT+1+1];
+};
+```
+
 改变bmap，添加第二级间接块的映射
 
 ```c
