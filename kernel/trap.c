@@ -3,9 +3,12 @@
 #include "memlayout.h"
 #include "riscv.h"
 #include "spinlock.h"
+#include "sleeplock.h"
 #include "proc.h"
 #include "defs.h"
-
+#include "fcntl.h"
+#include "fs.h"
+#include "file.h"
 struct spinlock tickslock;
 uint ticks;
 
@@ -13,7 +16,7 @@ extern char trampoline[], uservec[], userret[];
 
 // in kernelvec.S, calls kerneltrap().
 void kernelvec();
-
+int mmap_handler(uint64 va,int cause) ;
 extern int devintr();
 
 void
@@ -67,7 +70,18 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
-  } else {
+  } else if (r_scause()==13||r_scause()==15)
+  {
+  #ifdef LAB_MMAP
+  uint64 va=r_stval();
+  if (PGROUNDUP(p->trapframe->sp)-1 <va &&va<p->sz) 
+     {if (mmap_handler(va,r_scause()) !=0) p->killed=1;}
+  else p->killed=1;   
+  
+  #endif 
+  }  
+  
+  else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
@@ -83,6 +97,52 @@ usertrap(void)
   usertrapret();
 }
 
+
+int mmap_handler(uint64 va,int cause) 
+{
+uint64* pa;
+int i,offset;
+
+if ((pa=kalloc())==0) return -1;
+memset(pa,0,PGSIZE);
+
+struct proc *p=myproc();
+for (i=0;i<NVMA;i++)
+if (p->vma[i].used && p->vma[i].addr<=va 
+   && va<=p->vma[i].addr + p->vma[i].len-1 ) break;   ///find the file
+
+if (i==NVMA) return -1;   
+ 
+int flags=PTE_U;
+if (p->vma[i].prot&PROT_READ ) flags=flags|PTE_R;
+if (p->vma[i].prot&PROT_WRITE) flags=flags|PTE_W;
+if (p->vma[i].prot&PROT_EXEC) flags=flags|PTE_X;
+
+if (mappages(p->pagetable,PGROUNDDOWN(va),PGSIZE,(uint64)pa,flags)!=0)
+{
+kfree(pa);
+return -1;
+};
+
+struct file* fl=p->vma[i].fl;
+ilock(fl->ip);
+offset=p->vma[i].offset+PGROUNDDOWN(va - p->vma[i].addr);
+readi(fl->ip,1,(uint64)va,offset,p->vma[i].len);
+iunlock(fl->ip);
+  
+/*ilock(fl->ip);
+offset=p->vma[i].offset+PGROUNDDOWN(va - p->vma[i].addr);
+readi(fl->ip,0,(uint64)pa,offset,p->vma[i].len);
+iunlock(fl->ip);
+
+if (mappages(p->pagetable,PGROUNDDOWN(va),PGSIZE,(uint64)pa,flags)!=0)
+{
+kfree(pa);
+return -1;
+}*/
+
+return 0;
+}
 //
 // return to user space
 //

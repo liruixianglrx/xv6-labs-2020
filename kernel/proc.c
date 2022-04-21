@@ -5,7 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-
+#include "fcntl.h"
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -300,6 +300,11 @@ fork(void)
 
   pid = np->pid;
 
+  for (int i=0;i<NVMA;i++)
+  {
+   memmove(&np->vma[i],&p->vma[i],sizeof (p->vma[i]));
+   if (np->vma[i].used==1) filedup(np->vma[i].fl);
+  }
   np->state = RUNNABLE;
 
   release(&np->lock);
@@ -353,6 +358,18 @@ exit(int status)
     }
   }
 
+  for (int i=0;i<NVMA;++i)
+  {
+  if (p->vma[i].used) {
+  //no need to check the dirty bit,write to the file when it's MAP_SHARED
+  if (p->vma[i].flags==MAP_SHARED && (p->vma[i].prot&PROT_WRITE) !=0 ) 
+    filewrite(p->vma[i].fl, p->vma[i].addr, p->vma[i].len);
+   
+  fileclose(p->vma[i].fl);
+  uvmunmap(p->pagetable, p->vma[i].addr, p->vma[i].len / PGSIZE, 1);
+  p->vma[i].used = 0;
+  }
+  }
   begin_op();
   iput(p->cwd);
   end_op();
