@@ -178,9 +178,11 @@ return -1;
 
 struct file* fl=p->vma[i].fl;
 ilock(fl->ip);
-readi(fl->ip,1,(uint64)pa,p->vma[i].offset,p->vma[i].len);
+readi(fl->ip,1,(uint64)va,p->vma[i].offset,p->vma[i].len);
 iunlock(fl->ip);
 
 return 0;
 }
   ```
+  
+运行mmaptest，已和提示相同到达第一个munmap
